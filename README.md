@@ -1,4 +1,4 @@
-# 📘 Documento Breve – ETL Opiniones de Clientes
+# Documento Breve – ETL Opiniones de Clientes
 
 ## 1. Descripción General
 El proyecto implementa un proceso **ETL (Extract, Transform, Load)** en **Python** que integra distintas fuentes de datos 
@@ -98,3 +98,4 @@ erDiagram
 - El proceso ETL asegura integridad referencial mediante claves foráneas y uso de `NULL` cuando no se encuentra correspondencia.  
 - El esquema es expandible: se pueden añadir nuevas fuentes de hechos sin alterar las dimensiones existentes.  
 - La estructura facilita consultas sobre satisfacción de clientes, calidad de productos y tendencias de opiniones.
+
