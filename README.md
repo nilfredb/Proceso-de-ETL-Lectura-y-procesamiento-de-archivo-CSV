@@ -39,7 +39,7 @@ opiniones/
 ⚡ Instalación
 --------------
 1. Clonar repositorio:
-   git clone https://github.com/tu_usuario/opiniones.git
+   git clone https://github.com/nilfredb/Proceso-de-ETL-Lectura-y-procesamiento-de-archivo-CSV.git
    cd opiniones
 
 2. Instalar dependencias:
@@ -50,7 +50,7 @@ opiniones/
    MSSQL_DB=OpinionesDB
    MSSQL_DRIVER=ODBC Driver 18 for SQL Server
    DATA_DIR=./data
-
+   
 🚀 Ejecución del ETL
 --------------------
 python .\src\etl.py
@@ -76,30 +76,3 @@ El proceso realiza:
 2. Script de checks:
    :r sql\03_checks.sql
 
-📘 Ejemplo en Python
---------------------
-import pandas as pd
-from utils_db import make_engine
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-engine = make_engine(os.getenv("MSSQL_SERVER"), os.getenv("MSSQL_DB"), os.getenv("MSSQL_DRIVER"))
-
-with engine.connect() as conn:
-    df = pd.read_sql("SELECT TOP 10 * FROM dbo.Encuestas", conn)
-    print(df)
-
-✅ Buenas prácticas
-------------------
-- DDL idempotente.
-- Carga segura con FKs NULL si no existen en dimensiones.
-- Normalización de encabezados con tildes.
-- Código modular y documentado.
-
-📝 Futuras mejoras
-------------------
-- Insertar registros "desconocidos" en dimensiones para evitar NULL.
-- Agregar tests automáticos.
-- Crear vistas o reportes con análisis de satisfacción.
-- Dockerizar SQL Server + Python.
