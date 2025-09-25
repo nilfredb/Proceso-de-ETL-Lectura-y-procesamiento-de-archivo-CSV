@@ -1,78 +1,100 @@
-README – Proyecto de Análisis de Opiniones de Clientes
-=====================================================
+# 📘 Documento Breve – ETL Opiniones de Clientes
 
-📌 Descripción
---------------
-Este proyecto implementa un pipeline ETL (Extract, Transform, Load) en Python para cargar datos de opiniones de clientes desde múltiples fuentes CSV en una base de datos SQL Server.
+## 1. Descripción General
+El proyecto implementa un proceso **ETL (Extract, Transform, Load)** en **Python** que integra distintas fuentes de datos 
+(encuestas, comentarios sociales, reseñas web, clientes, productos y fuentes de datos) dentro de una base de datos 
+SQL Server llamada **`OpinionesDB`**.  
 
-El objetivo es integrar información de clientes, productos, fuentes de datos, encuestas, comentarios en redes sociales y reseñas web en un esquema centralizado (OpinionesDB) para facilitar análisis posteriores.
+El objetivo es centralizar la información de opiniones de clientes y estructurarla para futuros análisis de satisfacción, 
+calidad de productos y gestión de clientes.
 
-⚙️ Tecnologías
---------------
-- Python 3.11+
-- pandas para transformación de datos
-- SQLAlchemy + pyodbc para conexión con SQL Server
-- dotenv para configuración
-- SQL Server 2019/2022 (o Express)
-- Windows Authentication (sin usuario/contraseña)
+---
 
-📂 Estructura del proyecto
---------------------------
-opiniones/
-├─ data/                   # CSV de entrada
-│  ├─ clients.csv
-│  ├─ fuente_datos.csv
-│  ├─ products.csv
-│  ├─ social_comments.csv
-│  ├─ surveys_part1.csv
-│  └─ web_reviews.csv
-├─ sql/
-│  ├─ 01_schema.sql        # Definición idempotente del esquema
-│  └─ 03_checks.sql        # Consultas de verificación
-├─ src/
-│  ├─ etl.py               # Proceso ETL principal
-│  └─ utils_db.py          # Conexión y utilidades SQL Server
-├─ .env                    # Configuración (servidor, base, driver, rutas)
-├─ requirements.txt        # Dependencias Python
-└─ README.txt              # Documentación
+## 2. Flujo de Funcionamiento
 
-⚡ Instalación
---------------
-1. Clonar repositorio:
-   git clone https://github.com/nilfredb/Proceso-de-ETL-Lectura-y-procesamiento-de-archivo-CSV.git
-   cd opiniones
+1. **Extracción**  
+   - Se leen los archivos CSV (`clients.csv`, `products.csv`, `fuente_datos.csv`, 
+     `social_comments.csv`, `surveys_part1.csv`, `web_reviews.csv`).  
+   - Todo se carga inicialmente como texto para evitar errores de formato.
 
-2. Instalar dependencias:
-   pip install -r requirements.txt
+2. **Transformación**  
+   - Normalización de encabezados → (`Categoría → Categoria`, `Clasificación → Clasificacion`).  
+   - Limpieza de IDs → se convierten `C019` o `P006` a enteros (`19`, `6`).  
+   - Conversión de fechas a tipo `DATE`.  
+   - Limpieza de texto y duplicados.  
+   - Gestión de claves foráneas → si un cliente o producto no existe en su dimensión, se carga `NULL` en la tabla de hechos.
 
-3. Configuración .env:
-   MSSQL_SERVER=localhost          # o NOMBREPC\SQLEXPRESS
-   MSSQL_DB=OpinionesDB
-   MSSQL_DRIVER=ODBC Driver 18 for SQL Server
-   DATA_DIR=./data
-   
-🚀 Ejecución del ETL
---------------------
-python .\src\etl.py
+3. **Carga**  
+   - Inserción de **dimensiones** (`Clientes`, `Productos`, `Fuentes`).  
+   - Inserción de **tablas de hechos** (`Encuestas`, `ComentariosSociales`, `ResenasWeb`).  
+   - Inserción idempotente: no se duplican registros existentes.
 
-El proceso realiza:
-1. Asegura la base de datos (OpinionesDB).
-2. Crea el esquema de tablas (idempotente, sin borrar nada).
-3. Carga CSVs desde la carpeta data/.
-4. Limpieza y transformación (IDs, fechas, texto, duplicados).
-5. Carga en SQL Server:
-   - Inserta dimensiones (Clientes, Productos, Fuentes).
-   - Inserta hechos (Encuestas, ComentariosSociales, ResenasWeb).
-   - Si un IdCliente o IdProducto no existe en su dimensión, se inserta NULL.
+---
 
-📊 Verificación
----------------
-1. Con SQL Server Management Studio (SSMS):
-   USE OpinionesDB;
-   SELECT TOP 20 * FROM dbo.Clientes;
-   SELECT TOP 20 * FROM dbo.Productos;
-   SELECT TOP 20 * FROM dbo.Encuestas;
+## 3. Diagrama de Base de Datos
 
-2. Script de checks:
-   :r sql\03_checks.sql
+```mermaid
+erDiagram
+    CLIENTES {
+        INT IdCliente PK
+        NVARCHAR Nombre
+        NVARCHAR Email
+    }
 
+    PRODUCTOS {
+        INT IdProducto PK
+        NVARCHAR Nombre
+        NVARCHAR Categoria
+    }
+
+    FUENTES {
+        VARCHAR IdFuente PK
+        NVARCHAR TipoFuente
+        DATE FechaCarga
+    }
+
+    ENCUESTAS {
+        INT IdOpinion PK
+        INT IdCliente FK
+        INT IdProducto FK
+        DATE Fecha
+        NVARCHAR Comentario
+        NVARCHAR Clasificacion
+        TINYINT PuntajeSatisfaccion
+        NVARCHAR FuenteTexto
+    }
+
+    COMENTARIOSSOCIALES {
+        VARCHAR IdComment PK
+        INT IdCliente FK
+        INT IdProducto FK
+        NVARCHAR FuenteTexto
+        DATE Fecha
+        NVARCHAR Comentario
+    }
+
+    RESENASWEB {
+        VARCHAR IdReview PK
+        INT IdCliente FK
+        INT IdProducto FK
+        DATE Fecha
+        NVARCHAR Comentario
+        TINYINT Rating
+    }
+
+    CLIENTES ||--o{ ENCUESTAS : "tiene"
+    PRODUCTOS ||--o{ ENCUESTAS : "incluye"
+
+    CLIENTES ||--o{ COMENTARIOSSOCIALES : "comenta"
+    PRODUCTOS ||--o{ COMENTARIOSSOCIALES : "referencia"
+
+    CLIENTES ||--o{ RESENASWEB : "reseña"
+    PRODUCTOS ||--o{ RESENASWEB : "referencia"
+```
+
+---
+
+## 4. Conclusiones
+- El proceso ETL asegura integridad referencial mediante claves foráneas y uso de `NULL` cuando no se encuentra correspondencia.  
+- El esquema es expandible: se pueden añadir nuevas fuentes de hechos sin alterar las dimensiones existentes.  
+- La estructura facilita consultas sobre satisfacción de clientes, calidad de productos y tendencias de opiniones.
